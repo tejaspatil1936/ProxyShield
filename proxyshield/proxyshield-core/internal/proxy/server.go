@@ -34,8 +34,9 @@ type Server struct {
 	tb             *algorithm.TokenBucket
 	sw             *algorithm.SlidingWindow
 	httpServer     *http.Server
-	circuitBreaker *middleware.CircuitBreaker
-	cache          *middleware.ResponseCache
+	circuitBreaker  *middleware.CircuitBreaker
+	cache           *middleware.ResponseCache
+	adaptiveTracker *middleware.AdaptiveTracker
 }
 
 // NewServer creates a new proxy server with all dependencies wired up.
@@ -58,8 +59,9 @@ func NewServer(holder *config.Holder, bus *event.Bus) (*Server, error) {
 		banMap:         banMap,
 		tb:             tb,
 		sw:             sw,
-		circuitBreaker: middleware.NewCircuitBreaker(),
-		cache:          middleware.NewResponseCache(),
+		circuitBreaker:  middleware.NewCircuitBreaker(),
+		cache:           middleware.NewResponseCache(),
+		adaptiveTracker: middleware.NewAdaptiveTracker(),
 	}
 
 	mux := http.NewServeMux()
@@ -164,7 +166,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Rebuild chain with current config on each request (supports hot reload)
-	chain := middleware.BuildChain(cfg, s.banMap, s.tb, s.sw)
+	chain := middleware.BuildChain(cfg, s.banMap, s.tb, s.sw, s.adaptiveTracker)
 
 	if middleware.RunChain(chain, w, r, ctx) {
 		return

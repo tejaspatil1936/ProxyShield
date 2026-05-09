@@ -21,6 +21,15 @@ type Config struct {
 	Dashboard      DashboardConfig      `json:"dashboard"`
 	CircuitBreaker CircuitBreakerConfig `json:"circuit_breaker"`
 	Cache          CacheConfig          `json:"cache"`
+	Adaptive       AdaptiveConfig       `json:"adaptive"`
+}
+
+// AdaptiveConfig controls the per-device adaptive rate limiter.
+type AdaptiveConfig struct {
+	Enabled          bool    `json:"enabled"`
+	SpikeMultiplier  float64 `json:"spike_multiplier"`  // e.g. 3.0 = block at 3× baseline
+	LearningRequests int64   `json:"learning_requests"` // requests before enforcing
+	DecayPerBucket   float64 `json:"decay_per_bucket"`  // penalty decay per 10s bucket
 }
 
 // CircuitBreakerConfig controls the circuit breaker that protects against backend failures.
@@ -260,6 +269,16 @@ func Validate(cfg *Config) error {
 	}
 	if cfg.CircuitBreaker.SuccessThreshold <= 0 {
 		cfg.CircuitBreaker.SuccessThreshold = 2
+	}
+
+	if cfg.Adaptive.SpikeMultiplier <= 0 {
+		cfg.Adaptive.SpikeMultiplier = 3.0
+	}
+	if cfg.Adaptive.LearningRequests <= 0 {
+		cfg.Adaptive.LearningRequests = 20
+	}
+	if cfg.Adaptive.DecayPerBucket <= 0 {
+		cfg.Adaptive.DecayPerBucket = 0.15
 	}
 
 	return nil

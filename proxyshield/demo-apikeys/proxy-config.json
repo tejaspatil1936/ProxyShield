@@ -4,7 +4,7 @@
     "backend_url": "http://127.0.0.1:3000",
     "dashboard_port": 9091
   },
-  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "throttle", "headers", "cache"],
+  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers", "cache"],
   "rate_limits": [
     { "path": "/api/login", "method": "POST", "limit": 5, "window_seconds": 60, "algorithm": "sliding_window", "throttle_enabled": true },
     { "path": "/api/keys", "method": "POST", "limit": 3, "window_seconds": 60, "algorithm": "sliding_window", "throttle_enabled": false },
@@ -42,5 +42,11 @@
       { "path": "/api/usage/overview", "method": "GET", "ttl_seconds": 10 },
       { "path": "/api/health", "method": "GET", "ttl_seconds": 10 }
     ]
+  },
+  "adaptive": {
+    "enabled": true,
+    "spike_multiplier": 3.0,
+    "learning_requests": 20,
+    "decay_per_bucket": 0.15
   }
 }

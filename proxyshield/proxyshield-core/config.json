@@ -4,7 +4,7 @@
     "backend_url": "http://localhost:8080",
     "dashboard_port": 9091
   },
-  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "throttle", "headers", "cache"],
+  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers", "cache"],
   "rate_limits": [
     { "path": "/getAllUsers", "method": "GET", "limit": 100, "window_seconds": 60, "algorithm": "token_bucket", "throttle_enabled": false },
     { "path": "/login", "method": "POST", "limit": 5, "window_seconds": 60, "algorithm": "sliding_window", "throttle_enabled": true }
@@ -34,5 +34,11 @@
   "cache": {
     "enabled": false,
     "rules": []
+  },
+  "adaptive": {
+    "enabled": true,
+    "spike_multiplier": 3.0,
+    "learning_requests": 20,
+    "decay_per_bucket": 0.15
   }
 }

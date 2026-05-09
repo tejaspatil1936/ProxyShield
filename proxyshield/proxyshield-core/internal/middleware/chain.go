@@ -35,13 +35,14 @@ func RunChain(chain []Middleware, w http.ResponseWriter, r *http.Request, ctx *r
 // BuildChain creates the middleware chain from config.
 // The banMap is shared between IPBlacklist and Honeypot.
 // "headers" and "cache" are excluded — they are handled directly in proxy/server.go.
-func BuildChain(cfg *config.Config, banMap *sync.Map, tb *algorithm.TokenBucket, sw *algorithm.SlidingWindow) []Middleware {
+func BuildChain(cfg *config.Config, banMap *sync.Map, tb *algorithm.TokenBucket, sw *algorithm.SlidingWindow, at *AdaptiveTracker) []Middleware {
 	factories := map[string]func() Middleware{
 		"fingerprint":  func() Middleware { return NewDeviceFingerprinter() },
 		"ip-blacklist": func() Middleware { return NewIPBlacklist(cfg, banMap) },
 		"waf":          func() Middleware { return NewWAF(cfg) },
 		"honeypot":     func() Middleware { return NewHoneypot(cfg, banMap) },
 		"rate-limiter": func() Middleware { return NewRateLimiter(cfg, tb, sw) },
+		"adaptive":     func() Middleware { return NewAdaptiveRateLimiter(cfg, at) },
 		"throttle":     func() Middleware { return NewThrottle(cfg) },
 		"headers":      nil, // handled via RateLimitResponseWriter wrapper
 		"cache":        nil, // handled in proxy/server.go (needs recorder pattern)
