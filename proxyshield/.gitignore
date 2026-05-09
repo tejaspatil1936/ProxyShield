@@ -1,4 +1,5 @@
-# Go binary
+# Go binaries (build artifacts — never commit)
+proxyshield-core/proxyshield
 proxyshield-core/proxyshield-core
 *.exe
 *.test
@@ -20,6 +21,22 @@ Thumbs.db
 # Logs
 *.log
 
+# Vendored archives / load-test tooling (do not commit)
+*.tgz
+*.tar.gz
+apache-jmeter-*/
+
 # Editor
 .vscode/
 .idea/
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Environment (never commit local/secret env; .env.production is generated at deploy time)
+.env
+.env.local
+.env.production
+.env.production.local
+demo-apikeys/frontend/.env.production.local
