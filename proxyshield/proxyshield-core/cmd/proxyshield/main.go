@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 
 	"github.com/tejaspatil1936/proxyshield-core/benchmark"
@@ -54,6 +55,14 @@ func main() {
 	if err != nil {
 		logger.Error("failed to load config", logger.F("path", *configPath), logger.F("error", err.Error()))
 		os.Exit(1)
+	}
+
+	// Railway sets PORT — override config so the proxy binds to the assigned port.
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		if port, err := strconv.Atoi(envPort); err == nil {
+			cfg.Server.ListenPort = port
+			cfg.Server.DashboardPort = port + 1
+		}
 	}
 
 	bus := event.NewBus(10000)
