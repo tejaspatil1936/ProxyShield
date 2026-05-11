@@ -3,7 +3,15 @@ import cors from 'cors';
 import crypto from 'crypto';
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173' }));
+const PORT = process.env.BACKEND_PORT || 3000;
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
 // ── In-memory data ──────────────────────────────────────────────────────────
@@ -205,6 +213,6 @@ app.post('/api/scan', (_req, res) => {
 });
 
 // ── Start ────────────────────────────────────────────────────────────────────
-app.listen(3000, '127.0.0.1', () => {
-  console.log('[KeyVault Backend] Running on http://127.0.0.1:3000');
+app.listen(PORT, '127.0.0.1', () => {
+  console.log(`[KeyVault Backend] Running on http://127.0.0.1:${PORT}`);
 });
