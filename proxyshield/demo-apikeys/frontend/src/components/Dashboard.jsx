@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API } from '../api.js';
 import Navbar from './Navbar.jsx';
 import APIKeyList from './APIKeyList.jsx';
 import KeyDetailPanel from './KeyDetailPanel.jsx';
@@ -9,7 +10,7 @@ export default function Dashboard({ user, apiKeys, selectedKey, usageData, onSel
   const [overview, setOverview] = useState(null);
 
   useEffect(() => {
-    fetch('/api/usage/overview')
+    fetch(`${API}/api/usage/overview`)
       .then(r => r.json())
       .then(setOverview)
       .catch(() => {});

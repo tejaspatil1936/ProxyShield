@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API } from '../api.js';
 
 export default function AttackPanel({ showNotification }) {
   const [open, setOpen] = useState(false);
@@ -14,7 +15,7 @@ export default function AttackPanel({ showNotification }) {
     let blocked = 0;
     for (let i = 0; i < 10; i++) {
       try {
-        const res = await fetch('/api/login', {
+        const res = await fetch(`${API}/api/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: 'hack@test.com', password: `wrong${i}` })
@@ -30,7 +31,7 @@ export default function AttackPanel({ showNotification }) {
   const sqlInjection = async () => {
     setLoad('sql', true);
     try {
-      const res = await fetch("/api/keys/search?q=' UNION SELECT * FROM secrets --");
+      const res = await fetch(`${API}/api/keys/search?q=' UNION SELECT * FROM secrets --`);
       if (res.status === 403) setResult('sql', 'SQL injection blocked ✓', 'blocked');
       else setResult('sql', `Passed through (status ${res.status})`, 'success');
     } catch (_) {
@@ -42,7 +43,7 @@ export default function AttackPanel({ showNotification }) {
   const xssAttack = async () => {
     setLoad('xss', true);
     try {
-      const res = await fetch('/api/keys', {
+      const res = await fetch(`${API}/api/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: '<script>steal(document.cookie)</script>' })
@@ -58,7 +59,7 @@ export default function AttackPanel({ showNotification }) {
   const honeypotProbe = async () => {
     setLoad('honey', true);
     try {
-      const res = await fetch('/admin');
+      const res = await fetch(`${API}/admin`);
       if (res.status === 403) setResult('honey', 'Honeypot triggered — IP banned ✓', 'blocked');
       else setResult('honey', `Not blocked (status ${res.status})`, 'success');
     } catch (_) {
@@ -75,7 +76,7 @@ export default function AttackPanel({ showNotification }) {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}|;:,.<>?`~';
     const payload = Array.from({ length: 800 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
     try {
-      const res = await fetch('/api/scan', {
+      const res = await fetch(`${API}/api/scan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: payload })
@@ -95,7 +96,7 @@ export default function AttackPanel({ showNotification }) {
     let passed = 0, blocked = 0;
     await Promise.all(Array.from({ length: 5 }, async (_, i) => {
       try {
-        const res = await fetch('/api/keys', {
+        const res = await fetch(`${API}/api/keys`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: `Spam Key ${i}` })
@@ -111,7 +112,7 @@ export default function AttackPanel({ showNotification }) {
   const checkHeaders = async () => {
     setLoad('headers', true);
     try {
-      const res = await fetch('/api/keys');
+      const res = await fetch(`${API}/api/keys`);
       const remaining = res.headers.get('X-RateLimit-Remaining');
       const limit = res.headers.get('X-RateLimit-Limit');
       if (remaining !== null) {

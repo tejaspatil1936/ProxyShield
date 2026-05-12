@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API } from './api.js';
 import LoginPage from './components/LoginPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import Notification from './components/Notification.jsx';
@@ -17,7 +18,7 @@ export default function App() {
   };
 
   const login = async (email, password) => {
-    const res = await fetch('/api/login', {
+    const res = await fetch(`${API}/api/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -49,7 +50,7 @@ export default function App() {
 
   const fetchKeys = async () => {
     try {
-      const res = await fetch('/api/keys');
+      const res = await fetch(`${API}/api/keys`);
       if (res.ok) {
         setApiKeys(await res.json());
       }
@@ -79,7 +80,7 @@ export default function App() {
             setSelectedKey(key);
             if (key) {
               try {
-                const res = await fetch(`/api/keys/${key.id}/usage`);
+                const res = await fetch(`${API}/api/keys/${key.id}/usage`);
                 if (res.ok) setUsageData(await res.json());
               } catch (_) {}
             } else {

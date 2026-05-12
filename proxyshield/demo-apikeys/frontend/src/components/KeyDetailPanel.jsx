@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API } from '../api.js';
 import UsageChart from './UsageChart.jsx';
 
 function relativeTime(ts) {
@@ -20,7 +21,7 @@ export default function KeyDetailPanel({ apiKey, usageData, onRevoke, onClose, s
   const handleRotate = async () => {
     setRotating(true);
     try {
-      const res = await fetch(`/api/keys/${apiKey.id}/rotate`, { method: 'POST' });
+      const res = await fetch(`${API}/api/keys/${apiKey.id}/rotate`, { method: 'POST' });
       if (res.status === 429) {
         showNotification('Rate limited. Try again later.', 'warning');
       } else if (res.ok) {
@@ -37,7 +38,7 @@ export default function KeyDetailPanel({ apiKey, usageData, onRevoke, onClose, s
     if (!confirm('Revoke this key? This cannot be undone.')) return;
     setRevoking(true);
     try {
-      const res = await fetch(`/api/keys/${apiKey.id}`, { method: 'DELETE' });
+      const res = await fetch(`${API}/api/keys/${apiKey.id}`, { method: 'DELETE' });
       if (res.ok) {
         showNotification('Key revoked.', 'info');
         onRevoke(apiKey.id);
