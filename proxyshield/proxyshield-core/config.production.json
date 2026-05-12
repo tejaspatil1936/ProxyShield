@@ -1,0 +1,40 @@
+{
+  "server": {
+    "listen_port": 9090,
+    "backend_url": "http://127.0.0.1:3000",
+    "dashboard_port": 9091
+  },
+  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers"],
+  "rate_limits": [
+    { "path": "/api/login", "method": "POST", "limit": 5, "window_seconds": 60, "algorithm": "sliding_window", "throttle_enabled": true },
+    { "path": "/api/keys", "method": "POST", "limit": 3, "window_seconds": 60, "algorithm": "sliding_window", "throttle_enabled": false },
+    { "path": "/api/keys", "method": "GET", "limit": 60, "window_seconds": 60, "algorithm": "token_bucket", "throttle_enabled": false },
+    { "path": "/api/keys/search", "method": "GET", "limit": 30, "window_seconds": 60, "algorithm": "token_bucket", "throttle_enabled": false }
+  ],
+  "security": {
+    "block_sql_injection": true,
+    "block_xss": true,
+    "entropy_threshold": 5.5,
+    "max_body_bytes": 1048576,
+    "blacklisted_ips": []
+  },
+  "honeypots": [
+    { "path": "/admin", "ban_minutes": 5 },
+    { "path": "/.env", "ban_minutes": 10 },
+    { "path": "/wp-login.php", "ban_minutes": 5 },
+    { "path": "/phpmyadmin", "ban_minutes": 10 }
+  ],
+  "throttle": {
+    "warn_threshold": 0.8,
+    "warn_delay_ms": 200,
+    "critical_threshold": 0.9,
+    "critical_delay_ms": 500
+  },
+  "dashboard": { "enabled": true, "max_events": 1000 },
+  "adaptive": {
+    "enabled": true,
+    "spike_multiplier": 3.0,
+    "learning_requests": 20,
+    "decay_per_bucket": 0.15
+  }
+}
