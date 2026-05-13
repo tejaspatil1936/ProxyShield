@@ -16,7 +16,9 @@ export default function Dashboard({ user, apiKeys, selectedKey, usageData, onSel
       .catch(() => {});
   }, [apiKeys]);
 
-  const handleRevoke = (id) => {
+  // The key is already revoked by KeyDetailPanel's DELETE call; just re-fetch
+  // the list so the UI reflects the new status.
+  const handleRevoke = () => {
     onRefresh();
   };
 
