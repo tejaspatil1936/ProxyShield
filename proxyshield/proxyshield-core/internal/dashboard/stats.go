@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tejaspatil1936/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/proxyshield-core/internal/middleware"
 )
 
 // Stats collects and serves real-time proxy statistics.
@@ -86,24 +87,21 @@ func (s *Stats) updateRPS() {
 	s.RPS = float64(len(s.recentRequests)) / 10.0
 }
 
-// countActiveBans counts non-expired entries in the ban map.
+// countActiveBans counts non-expired entries in the ban map. The map is a
+// *sync.Map of middleware.BanEntry keyed by device fingerprint (or IP); an
+// entry is active only while now < BannedAt+BanDuration.
 func (s *Stats) countActiveBans() int {
 	if s.banMap == nil {
 		return 0
 	}
 	count := 0
 	now := time.Now()
-	s.banMap.Range(func(k, v interface{}) bool {
-		// BanEntry is defined in middleware package; use interface duck-typing
-		type banEntry interface {
-			BannedAtTime() time.Time
-			BanDur() time.Duration
+	s.banMap.Range(func(_, v interface{}) bool {
+		if entry, ok := v.(middleware.BanEntry); ok {
+			if now.Before(entry.BannedAt.Add(entry.BanDuration)) {
+				count++
+			}
 		}
-		// Since we can't import middleware here, use reflection-free approach:
-		// The banMap stores middleware.BanEntry but we can't import it.
-		// We count all entries as active (expiry checked at request time).
-		count++
-		_ = now
 		return true
 	})
 	return count
