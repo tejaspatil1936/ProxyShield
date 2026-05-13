@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
 	"github.com/tejaspatil1936/proxyshield-core/internal/event"
 	"github.com/tejaspatil1936/proxyshield-core/internal/logger"
 )
@@ -20,44 +19,6 @@ type DashboardServer struct {
 	stats      *Stats
 	httpServer *http.Server
 	publicDir  string
-}
-
-// NewDashboardServer creates a DashboardServer connected to the event bus.
-func NewDashboardServer(bus *event.Bus, banMap *sync.Map, cfg *config.Config) *DashboardServer {
-	broker := NewSSEBroker(bus)
-	stats := NewStats(bus, banMap)
-
-	// Resolve public directory relative to the executable.
-	exe, err := os.Executable()
-	publicDir := "internal/dashboard/public"
-	if err == nil {
-		publicDir = filepath.Join(filepath.Dir(exe), "internal", "dashboard", "public")
-		// fallback to relative path if exec dir doesn't have it
-		if _, err := os.Stat(publicDir); os.IsNotExist(err) {
-			publicDir = "internal/dashboard/public"
-		}
-	}
-
-	d := &DashboardServer{
-		broker:    broker,
-		stats:     stats,
-		publicDir: publicDir,
-	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/events", broker.ServeHTTP)
-	mux.HandleFunc("/stats", stats.ServeHTTP)
-	mux.HandleFunc("/style.css", d.serveStatic("style.css", "text/css"))
-	mux.HandleFunc("/app.js", d.serveStatic("app.js", "application/javascript"))
-	mux.HandleFunc("/dashboard", d.serveIndex)
-	mux.HandleFunc("/", d.serveIndex)
-
-	d.httpServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", cfg.Server.DashboardPort),
-		Handler: mux,
-	}
-
-	return d
 }
 
 // NewDashboardServerOnPort creates a DashboardServer on a specific port.
