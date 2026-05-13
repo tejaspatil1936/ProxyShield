@@ -157,17 +157,6 @@ app.delete('/api/keys/:id', (req, res) => {
   res.json(key);
 });
 
-// PATCH /api/keys/:id
-app.patch('/api/keys/:id', (req, res) => {
-  const key = apiKeys.find(k => k.id === req.params.id);
-  if (!key) return res.status(404).json({ error: 'Key not found' });
-  const { name, permissions, rateLimit } = req.body || {};
-  if (name) key.name = name;
-  if (permissions) key.permissions = permissions;
-  if (rateLimit != null) key.rateLimit = rateLimit;
-  res.json(key);
-});
-
 // POST /api/keys/:id/rotate
 app.post('/api/keys/:id/rotate', (req, res) => {
   const key = apiKeys.find(k => k.id === req.params.id);
