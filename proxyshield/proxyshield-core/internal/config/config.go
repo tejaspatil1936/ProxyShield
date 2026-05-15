@@ -4,6 +4,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -22,6 +23,10 @@ type Config struct {
 	CircuitBreaker CircuitBreakerConfig `json:"circuit_breaker"`
 	Cache          CacheConfig          `json:"cache"`
 	Adaptive       AdaptiveConfig       `json:"adaptive"`
+
+	// trustedNets is the parsed form of Server.TrustedProxies, populated by
+	// Validate. It is not serialized.
+	trustedNets []*net.IPNet
 }
 
 // AdaptiveConfig controls the per-device adaptive rate limiter.
@@ -58,6 +63,13 @@ type ServerConfig struct {
 	ListenPort    int    `json:"listen_port"`
 	BackendURL    string `json:"backend_url"`
 	DashboardPort int    `json:"dashboard_port"`
+
+	// TrustedProxies lists CIDRs (or bare IPs) of upstream proxies/load balancers
+	// whose X-Forwarded-For header may be trusted. If empty, X-Forwarded-For is
+	// IGNORED and the direct peer (RemoteAddr) is used — the fail-closed default
+	// that prevents header-spoofing attackers from forging a fresh identity per
+	// request. Set this to your load balancer / platform edge CIDRs in production.
+	TrustedProxies []string `json:"trusted_proxies"`
 }
 
 // RateLimitRule defines rate limiting behavior for a specific path and method.
@@ -209,6 +221,30 @@ func Validate(cfg *Config) error {
 		return fmt.Errorf("server.dashboard_port must differ from server.listen_port")
 	}
 
+	// Parse trusted proxy CIDRs (or bare IPs) once, up front.
+	cfg.trustedNets = cfg.trustedNets[:0]
+	for i, entry := range cfg.Server.TrustedProxies {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if !strings.Contains(entry, "/") {
+			// Bare IP → /32 or /128.
+			if ip := net.ParseIP(entry); ip != nil {
+				if ip.To4() != nil {
+					entry += "/32"
+				} else {
+					entry += "/128"
+				}
+			}
+		}
+		_, ipNet, err := net.ParseCIDR(entry)
+		if err != nil {
+			return fmt.Errorf("server.trusted_proxies[%d] %q: %w", i, cfg.Server.TrustedProxies[i], err)
+		}
+		cfg.trustedNets = append(cfg.trustedNets, ipNet)
+	}
+
 	for i := range cfg.RateLimits {
 		r := &cfg.RateLimits[i]
 		if !strings.HasPrefix(r.Path, "/") {
@@ -282,6 +318,21 @@ func Validate(cfg *Config) error {
 	}
 
 	return nil
+}
+
+// IsTrustedProxy reports whether ip falls within any configured trusted-proxy
+// CIDR. With no trusted proxies configured it always returns false, so callers
+// fall back to the direct peer address.
+func (c *Config) IsTrustedProxy(ip net.IP) bool {
+	if ip == nil {
+		return false
+	}
+	for _, n := range c.trustedNets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 // Holder provides thread-safe access to the current configuration.
