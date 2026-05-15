@@ -1,5 +1,9 @@
 version: 2
 
+# Releases are published to github.com/tejaspatil1936/Consensus-Lab (see the
+# `release` block). Tag releases with valid SemVer, e.g. `v2.0.0` — NOT `v2.0.00`,
+# which GoReleaser passed through as the odd "2.0.00" in earlier artifacts.
+
 project_name: proxyshield
 
 before:
@@ -36,6 +40,11 @@ archives:
 
 checksum:
   name_template: "checksums.txt"
+
+# Untagged / dirty builds get a clearly-marked snapshot version instead of an
+# accidental release-looking string.
+snapshot:
+  version_template: "{{ incpatch .Version }}-dev+{{ .ShortCommit }}"
 
 changelog:
   sort: asc
