@@ -35,30 +35,15 @@ func (m *Throttle) Handle(w http.ResponseWriter, r *http.Request, ctx *reqctx.Co
 
 	ratio := float64(ctx.RateLimitInfo.Current) / float64(ctx.RateLimitInfo.Limit)
 
+	// Defaults are applied once in config.Validate, so the config values are
+	// already non-zero here — no need to re-derive them.
 	t := m.config.Throttle
-	warnThreshold := t.WarnThreshold
-	criticalThreshold := t.CriticalThreshold
-	warnDelayMs := t.WarnDelayMs
-	criticalDelayMs := t.CriticalDelayMs
-
-	if warnThreshold == 0 {
-		warnThreshold = 0.8
-	}
-	if criticalThreshold == 0 {
-		criticalThreshold = 0.9
-	}
-	if warnDelayMs == 0 {
-		warnDelayMs = 200
-	}
-	if criticalDelayMs == 0 {
-		criticalDelayMs = 500
-	}
 
 	var delayMs int
-	if ratio >= criticalThreshold {
-		delayMs = criticalDelayMs
-	} else if ratio >= warnThreshold {
-		delayMs = warnDelayMs
+	if ratio >= t.CriticalThreshold {
+		delayMs = t.CriticalDelayMs
+	} else if ratio >= t.WarnThreshold {
+		delayMs = t.WarnDelayMs
 	}
 
 	if delayMs > 0 {
