@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/middleware"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/middleware"
 )
 
 // Stats collects and serves real-time proxy statistics.

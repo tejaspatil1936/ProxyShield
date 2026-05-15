@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/logger"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
 )
 
 // DashboardServer serves the real-time monitoring dashboard.

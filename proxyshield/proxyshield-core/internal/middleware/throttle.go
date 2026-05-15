@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/reqctx"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
 // Throttle introduces graduated delays as request rates approach configured limits.

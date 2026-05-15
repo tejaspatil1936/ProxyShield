@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/reqctx"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
 // BanEntry records when a device was banned and for how long.

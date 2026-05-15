@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/algorithm"
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/logger"
-	"github.com/tejaspatil1936/proxyshield-core/internal/middleware"
-	"github.com/tejaspatil1936/proxyshield-core/internal/reqctx"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/algorithm"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/middleware"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
 // Server is the main proxy server.

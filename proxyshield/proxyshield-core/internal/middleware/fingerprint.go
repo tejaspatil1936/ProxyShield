@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/reqctx"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
 // DeviceFingerprinter computes a SHA-256 device fingerprint from IP + request headers.

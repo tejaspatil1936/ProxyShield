@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/algorithm"
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/reqctx"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/algorithm"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
 // WAF is the Web Application Firewall middleware. It detects SQL injection, XSS,

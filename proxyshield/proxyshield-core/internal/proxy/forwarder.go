@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/logger"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
 )
 
 // NewForwarder creates an httputil.ReverseProxy configured for the given backend URL.

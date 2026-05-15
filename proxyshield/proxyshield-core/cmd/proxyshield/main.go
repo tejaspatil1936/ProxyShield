@@ -9,12 +9,12 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/tejaspatil1936/proxyshield-core/benchmark"
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/dashboard"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
-	"github.com/tejaspatil1936/proxyshield-core/internal/logger"
-	"github.com/tejaspatil1936/proxyshield-core/internal/proxy"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/benchmark"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/dashboard"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/proxy"
 )
 
 // Set via ldflags at build time by GoReleaser.

@@ -5,8 +5,8 @@ package reqctx
 import (
 	"time"
 
-	"github.com/tejaspatil1936/proxyshield-core/internal/config"
-	"github.com/tejaspatil1936/proxyshield-core/internal/event"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/event"
 )
 
 // RateLimitInfo carries rate limit metadata for a request, populated by the
