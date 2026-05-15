@@ -121,7 +121,7 @@ func (s *Server) GetBanMap() *sync.Map {
 
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	cfg := s.config.Get()
-	ip := extractIP(r)
+	ip := extractIP(r, cfg)
 
 	s.eventBus.Publish(event.Event{
 		Name:      event.RequestReceived,
@@ -248,22 +248,45 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
-// extractIP returns the client IP from the request, checking X-Forwarded-For first.
-func extractIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		parts := strings.Split(xff, ",")
-		if len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			ip = strings.TrimPrefix(ip, "::ffff:")
-			return ip
-		}
-	}
-
+// extractIP returns the trustworthy client IP for the request.
+//
+// X-Forwarded-For is honored ONLY when the direct peer (RemoteAddr) is itself a
+// configured trusted proxy; otherwise the header is attacker-controlled and is
+// ignored in favor of RemoteAddr. When trusted, the chain is walked right-to-left
+// skipping trusted hops, and the first untrusted address is the real client. This
+// prevents an attacker from forging a fresh identity per request by rotating XFF,
+// which would otherwise defeat the blacklist, rate limiter, adaptive baselines,
+// and bans simultaneously.
+func extractIP(r *http.Request, cfg *config.Config) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
 	}
 	host = strings.TrimPrefix(host, "::ffff:")
+
+	peer := net.ParseIP(host)
+	if peer == nil || cfg == nil || !cfg.IsTrustedProxy(peer) {
+		return host
+	}
+
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff == "" {
+		return host
+	}
+	parts := strings.Split(xff, ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		cand := strings.TrimSpace(parts[i])
+		cand = strings.TrimPrefix(cand, "::ffff:")
+		ip := net.ParseIP(cand)
+		if ip == nil {
+			continue
+		}
+		if cfg.IsTrustedProxy(ip) {
+			continue // another trusted hop — keep walking left
+		}
+		return cand // first untrusted address = real client
+	}
+	// Entire chain was trusted (or unparseable) — fall back to the direct peer.
 	return host
 }
 
