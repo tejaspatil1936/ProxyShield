@@ -2,7 +2,8 @@
   "server": {
     "listen_port": 9090,
     "backend_url": "http://127.0.0.1:3000",
-    "dashboard_port": 9091
+    "dashboard_port": 9091,
+    "trusted_proxies": ["127.0.0.1/8", "::1/128", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "fd00::/8"]
   },
   "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers"],
   "rate_limits": [

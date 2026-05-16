@@ -2,7 +2,8 @@
   "server": {
     "listen_port": 9090,
     "backend_url": "http://localhost:8080",
-    "dashboard_port": 9091
+    "dashboard_port": 9091,
+    "trusted_proxies": []
   },
   "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers", "cache"],
   "rate_limits": [
