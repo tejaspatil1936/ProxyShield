@@ -70,6 +70,13 @@ func NewServer(holder *config.Holder, bus *event.Bus) (*Server, error) {
 	s.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.ListenPort),
 		Handler: mux,
+		// Bound every phase of a connection so slow clients can't pin goroutines
+		// (Slowloris). WriteTimeout is generous to allow legitimate slow backends
+		// and streaming, while ReadHeaderTimeout kills header-dribbling attacks.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Start cleanup goroutine
