@@ -11,6 +11,13 @@ import (
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
 )
 
+// contextKey is a private type for request-context keys set by the proxy.
+type contextKey string
+
+// clientIPKey carries the trusted, resolved client IP from handleRequest into
+// the forwarder's Director so it can set an accurate X-Forwarded-For.
+const clientIPKey contextKey = "proxyshield.clientIP"
+
 // NewForwarder creates an httputil.ReverseProxy configured for the given backend URL.
 // It streams request and response bodies without buffering and uses a pooled transport.
 func NewForwarder(backendURL string) (*httputil.ReverseProxy, error) {
@@ -22,6 +29,7 @@ func NewForwarder(backendURL string) (*httputil.ReverseProxy, error) {
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	proxy.Director = func(req *http.Request) {
+		host := req.Host
 		req.URL.Scheme = target.Scheme
 		req.URL.Host = target.Host
 		req.Host = target.Host
@@ -29,15 +37,29 @@ func NewForwarder(backendURL string) (*httputil.ReverseProxy, error) {
 		// Preserve original path and query
 		// (already set by caller — do not override)
 
-		// X-Forwarded-For
-		clientIP := req.RemoteAddr
-		if prior := req.Header.Get("X-Forwarded-For"); prior != "" {
-			req.Header.Set("X-Forwarded-For", prior+", "+clientIP)
-		} else {
-			req.Header.Set("X-Forwarded-For", clientIP)
+		// Present the backend with the single client IP that ProxyShield actually
+		// trusts (resolved via the trusted-proxy rules), replacing any
+		// client-supplied X-Forwarded-For chain so the backend can't be fed a
+		// spoofed value. Fall back to the direct peer's IP (without port).
+		clientIP, _ := req.Context().Value(clientIPKey).(string)
+		if clientIP == "" {
+			if h, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+				clientIP = h
+			} else {
+				clientIP = req.RemoteAddr
+			}
 		}
-		req.Header.Set("X-Forwarded-Proto", "http")
-		req.Header.Set("X-Forwarded-Host", req.Host)
+		req.Header.Set("X-Forwarded-For", clientIP)
+		req.Header.Set("X-Real-IP", clientIP)
+
+		// Reflect the scheme the client used to reach the proxy rather than a
+		// hardcoded "http".
+		proto := "http"
+		if req.TLS != nil {
+			proto = "https"
+		}
+		req.Header.Set("X-Forwarded-Proto", proto)
+		req.Header.Set("X-Forwarded-Host", host)
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {

@@ -129,6 +129,8 @@ func (s *Server) GetBanMap() *sync.Map {
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	cfg := s.config.Get()
 	ip := extractIP(r, cfg)
+	// Carry the resolved client IP to the forwarder's Director for X-Forwarded-For.
+	r = r.WithContext(context.WithValue(r.Context(), clientIPKey, ip))
 
 	s.eventBus.Publish(event.Event{
 		Name:      event.RequestReceived,
