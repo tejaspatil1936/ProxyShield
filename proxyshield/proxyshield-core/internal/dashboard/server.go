@@ -52,6 +52,12 @@ func NewDashboardServerOnPort(bus *event.Bus, banMap *sync.Map, port int) *Dashb
 	d.httpServer = &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
+		// ReadHeaderTimeout guards against slow-header attacks. WriteTimeout is
+		// intentionally 0 (unbounded): /events is a long-lived SSE stream that a
+		// hard write deadline would sever. IdleTimeout still reaps idle keep-alives.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return d
