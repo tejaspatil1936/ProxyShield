@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,14 +39,20 @@ func (m *WAF) Name() string { return "waf" }
 
 // Handle scans the request for SQL injection, XSS, and high-entropy payloads.
 func (m *WAF) Handle(w http.ResponseWriter, r *http.Request, ctx *reqctx.Context) bool {
-	// Collect all strings to scan
-	targets := []string{r.URL.Path}
+	// Collect the raw strings to scan, then expand each with a decoded form so
+	// percent-encoded (%3Cscript) and JSON-unicode (<script) payloads can't
+	// slip past the literal-text patterns.
+	raw := []string{r.URL.Path}
+	if r.URL.RawQuery != "" {
+		raw = append(raw, r.URL.RawQuery)
+	}
 	for _, vals := range r.URL.Query() {
-		targets = append(targets, vals...)
+		raw = append(raw, vals...)
 	}
 	if ctx.BodyText != "" {
-		targets = append(targets, ctx.BodyText)
+		raw = append(raw, ctx.BodyText)
 	}
+	targets := expandDecoded(raw)
 
 	if m.config.Security.BlockSQLInjection {
 		for _, s := range targets {
@@ -107,6 +115,54 @@ func (m *WAF) Handle(w http.ResponseWriter, r *http.Request, ctx *reqctx.Context
 	}
 
 	return false
+}
+
+// expandDecoded returns the inputs plus a normalized (URL- and unicode-decoded)
+// copy of each input, added only when decoding actually changes the string.
+func expandDecoded(in []string) []string {
+	out := make([]string, 0, len(in)*2)
+	for _, s := range in {
+		out = append(out, s)
+		if d := normalizeForScan(s); d != s {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// normalizeForScan repeatedly URL-decodes s (up to 3 passes, to defeat
+// multi-encoding) and then decodes JSON-style \uXXXX escapes.
+func normalizeForScan(s string) string {
+	prev := s
+	for i := 0; i < 3; i++ {
+		dec, err := url.QueryUnescape(prev)
+		if err != nil || dec == prev {
+			break
+		}
+		prev = dec
+	}
+	return decodeUnicodeEscapes(prev)
+}
+
+// decodeUnicodeEscapes turns \uXXXX sequences (as seen in JSON string bodies)
+// into their literal runes so "<script>" is caught as "<script>".
+func decodeUnicodeEscapes(s string) string {
+	if !strings.Contains(s, `\u`) {
+		return s
+	}
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if i+6 <= len(s) && s[i] == '\\' && (s[i+1] == 'u' || s[i+1] == 'U') {
+			if r, err := strconv.ParseUint(s[i+2:i+6], 16, 32); err == nil {
+				b.WriteRune(rune(r))
+				i += 6
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
 }
 
 // shouldSkipEntropy returns true for content types where high entropy is expected.
