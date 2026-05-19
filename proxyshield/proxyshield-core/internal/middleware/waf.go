@@ -49,6 +49,11 @@ func (m *WAF) Handle(w http.ResponseWriter, r *http.Request, ctx *reqctx.Context
 	for _, vals := range r.URL.Query() {
 		raw = append(raw, vals...)
 	}
+	// Header values are a common injection vector (Referer, User-Agent, Cookie,
+	// X-Forwarded-*) that the WAF previously ignored entirely.
+	for _, vals := range r.Header {
+		raw = append(raw, vals...)
+	}
 	if ctx.BodyText != "" {
 		raw = append(raw, ctx.BodyText)
 	}
