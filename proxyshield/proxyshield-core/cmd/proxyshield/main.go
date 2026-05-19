@@ -81,7 +81,7 @@ func main() {
 
 	// Start dashboard if enabled
 	if cfg.Dashboard.Enabled {
-		dash := dashboard.NewDashboardServerOnPort(bus, server.GetBanMap(), cfg.Server.DashboardPort)
+		dash := dashboard.NewDashboardServerOnPort(bus, server.GetBanMap(), cfg.Server.DashboardPort, cfg.Dashboard.AuthToken)
 		go func() {
 			if err := dash.Start(bus); err != nil {
 				logger.Error("dashboard error", logger.F("error", err.Error()))

@@ -117,8 +117,9 @@ type ThrottleConfig struct {
 
 // DashboardConfig controls the real-time dashboard server.
 type DashboardConfig struct {
-	Enabled   bool `json:"enabled"`
-	MaxEvents int  `json:"max_events"`
+	Enabled   bool   `json:"enabled"`
+	MaxEvents int    `json:"max_events"`
+	AuthToken string `json:"auth_token"` // if set, /stats and /events require ?token= or Bearer
 }
 
 // Load reads and parses the config file at path, then validates it.

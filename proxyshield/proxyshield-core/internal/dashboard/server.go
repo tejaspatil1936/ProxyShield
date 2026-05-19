@@ -2,10 +2,12 @@ package dashboard
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,10 +21,12 @@ type DashboardServer struct {
 	stats      *Stats
 	httpServer *http.Server
 	publicDir  string
+	authToken  string
 }
 
-// NewDashboardServerOnPort creates a DashboardServer on a specific port.
-func NewDashboardServerOnPort(bus *event.Bus, banMap *sync.Map, port int) *DashboardServer {
+// NewDashboardServerOnPort creates a DashboardServer on a specific port. When
+// authToken is non-empty, the data endpoints (/stats, /events) require it.
+func NewDashboardServerOnPort(bus *event.Bus, banMap *sync.Map, port int, authToken string) *DashboardServer {
 	broker := NewSSEBroker(bus)
 	stats := NewStats(bus, banMap)
 
@@ -39,11 +43,12 @@ func NewDashboardServerOnPort(bus *event.Bus, banMap *sync.Map, port int) *Dashb
 		broker:    broker,
 		stats:     stats,
 		publicDir: publicDir,
+		authToken: authToken,
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/events", broker.ServeHTTP)
-	mux.HandleFunc("/stats", stats.ServeHTTP)
+	mux.HandleFunc("/events", d.requireAuth(broker.ServeHTTP))
+	mux.HandleFunc("/stats", d.requireAuth(stats.ServeHTTP))
 	mux.HandleFunc("/style.css", d.serveStatic("style.css", "text/css"))
 	mux.HandleFunc("/app.js", d.serveStatic("app.js", "application/javascript"))
 	mux.HandleFunc("/dashboard", d.serveIndex)
@@ -80,6 +85,31 @@ func (d *DashboardServer) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return d.httpServer.Shutdown(ctx)
+}
+
+// requireAuth wraps a handler so that, when an auth token is configured, the
+// request must present it via "Authorization: Bearer <token>" or "?token=".
+// Comparison is constant-time. With no token configured, the handler is public.
+func (d *DashboardServer) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if d.authToken != "" && !d.tokenOK(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"unauthorized","reason":"dashboard token required"}`))
+			return
+		}
+		next(w, r)
+	}
+}
+
+func (d *DashboardServer) tokenOK(r *http.Request) bool {
+	got := r.URL.Query().Get("token")
+	if got == "" {
+		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			got = strings.TrimPrefix(h, "Bearer ")
+		}
+	}
+	return subtle.ConstantTimeCompare([]byte(got), []byte(d.authToken)) == 1
 }
 
 func (d *DashboardServer) serveIndex(w http.ResponseWriter, r *http.Request) {

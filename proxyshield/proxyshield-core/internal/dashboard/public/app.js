@@ -15,6 +15,15 @@ let sparkPeak = 0;
 
 const el = id => document.getElementById(id);
 
+// When the dashboard is token-protected, the operator opens it as
+// /dashboard?token=SECRET. Carry that token to the data endpoints (EventSource
+// can't set headers, so it goes in the query string).
+const AUTH_TOKEN = new URLSearchParams(location.search).get('token') || '';
+function withToken(path) {
+  if (!AUTH_TOKEN) return path;
+  return path + (path.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(AUTH_TOKEN);
+}
+
 function formatTime(ts) {
   return new Date(ts || Date.now()).toLocaleTimeString('en-US', {
     hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
@@ -136,7 +145,7 @@ function updateStats(s) {
 
 async function fetchStats() {
   try {
-    const res = await fetch('/stats');
+    const res = await fetch(withToken('/stats'));
     if (res.ok) updateStats(await res.json());
   } catch (_) {}
 }
@@ -219,7 +228,7 @@ function drawSparkline(currentRPS) {
 
 function connect() {
   if (es) { try { es.close(); } catch(_) {} }
-  es = new EventSource('/events');
+  es = new EventSource(withToken('/events'));
   es.onopen  = () => setStatus(true);
   es.onerror = () => { setStatus(false); es.close(); setTimeout(connect, RECONNECT_DELAY); };
 
