@@ -70,6 +70,16 @@ type ServerConfig struct {
 	// that prevents header-spoofing attackers from forging a fresh identity per
 	// request. Set this to your load balancer / platform edge CIDRs in production.
 	TrustedProxies []string `json:"trusted_proxies"`
+
+	// TLS optionally terminates HTTPS on the proxy listener.
+	TLS TLSConfig `json:"tls"`
+}
+
+// TLSConfig configures optional HTTPS termination on the proxy listener.
+type TLSConfig struct {
+	Enabled  bool   `json:"enabled"`
+	CertFile string `json:"cert_file"`
+	KeyFile  string `json:"key_file"`
 }
 
 // RateLimitRule defines rate limiting behavior for a specific path and method.
@@ -243,6 +253,12 @@ func Validate(cfg *Config) error {
 			return fmt.Errorf("server.trusted_proxies[%d] %q: %w", i, cfg.Server.TrustedProxies[i], err)
 		}
 		cfg.trustedNets = append(cfg.trustedNets, ipNet)
+	}
+
+	if cfg.Server.TLS.Enabled {
+		if cfg.Server.TLS.CertFile == "" || cfg.Server.TLS.KeyFile == "" {
+			return fmt.Errorf("server.tls.cert_file and server.tls.key_file are required when tls.enabled")
+		}
 	}
 
 	for i := range cfg.RateLimits {
