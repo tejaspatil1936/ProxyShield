@@ -99,6 +99,14 @@ func (s *Server) Start() error {
 
 	errCh := make(chan error, 1)
 	go func() {
+		tls := s.config.Get().Server.TLS
+		if tls.Enabled {
+			logger.Info("proxy listening (TLS)", logger.F("addr", s.httpServer.Addr))
+			if err := s.httpServer.ListenAndServeTLS(tls.CertFile, tls.KeyFile); err != nil && err != http.ErrServerClosed {
+				errCh <- err
+			}
+			return
+		}
 		logger.Info("proxy listening", logger.F("addr", s.httpServer.Addr))
 		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err

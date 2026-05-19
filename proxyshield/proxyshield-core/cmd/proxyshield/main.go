@@ -106,11 +106,15 @@ func main() {
 }
 
 func printBanner(cfg *config.Config) {
+	scheme := "http"
+	if cfg.Server.TLS.Enabled {
+		scheme = "https"
+	}
 	fmt.Println(`╔══════════════════════════════════════════╗`)
 	fmt.Printf( "║         ProxyShield %-21s║\n", version)
 	fmt.Println(`║   High-Performance Reverse Proxy (Go)    ║`)
 	fmt.Println(`╠══════════════════════════════════════════╣`)
-	fmt.Printf( "║  Proxy:      http://localhost:%-12d║\n", cfg.Server.ListenPort)
+	fmt.Printf( "║  Proxy:      %s://localhost:%-*d║\n", scheme, 16-len(scheme), cfg.Server.ListenPort)
 	fmt.Printf( "║  Backend:    %-28s║\n", cfg.Server.BackendURL)
 	fmt.Printf( "║  Dashboard:  http://localhost:%-12d║\n", cfg.Server.DashboardPort)
 	fmt.Printf( "║  Middlewares: %-26d║\n", len(cfg.Middlewares))
