@@ -170,15 +170,17 @@ func decodeUnicodeEscapes(s string) string {
 	return b.String()
 }
 
-// shouldSkipEntropy returns true for content types where high entropy is expected.
+// shouldSkipEntropy returns true only for multipart/form-data, the genuine
+// browser file-upload encoding where high-entropy binary parts are expected.
+//
+// It deliberately does NOT skip based on image/audio/video/octet-stream: those
+// are trivially attacker-set on a raw body to bypass the entropy check while
+// posting an obfuscated payload to a JSON API. (A raw image/* body to a
+// non-upload endpoint is itself anomalous.) Per-path exemptions are the right
+// production answer for legitimate binary-upload routes.
 func shouldSkipEntropy(ct string) bool {
 	if ct == "" {
 		return false
 	}
-	ct = strings.ToLower(ct)
-	return strings.HasPrefix(ct, "multipart/form-data") ||
-		strings.HasPrefix(ct, "application/octet-stream") ||
-		strings.HasPrefix(ct, "image/") ||
-		strings.HasPrefix(ct, "audio/") ||
-		strings.HasPrefix(ct, "video/")
+	return strings.HasPrefix(strings.ToLower(ct), "multipart/form-data")
 }
