@@ -117,10 +117,46 @@ func (rc *ResponseCache) findRule(cfg *config.Config, r *http.Request) *config.C
 	return nil
 }
 
+// isPrivateRequest reports whether a request carries per-user credentials, in
+// which case it must never read from or write to a shared cache (the response
+// is specific to that user and could leak across sessions).
+func isPrivateRequest(r *http.Request) bool {
+	return r.Header.Get("Authorization") != "" || r.Header.Get("Cookie") != ""
+}
+
+// isCacheableResponse reports whether a backend response may be safely stored in
+// a shared method+URI-keyed cache. It refuses error statuses, Set-Cookie
+// responses (session leakage), private/no-store responses, and Vary'd responses
+// that a method+URI key cannot represent.
+func isCacheableResponse(status int, h http.Header) bool {
+	switch status {
+	case http.StatusOK, http.StatusNonAuthoritativeInfo, http.StatusNoContent,
+		http.StatusMovedPermanently, http.StatusPermanentRedirect:
+		// heuristically cacheable
+	default:
+		return false
+	}
+	if len(h.Values("Set-Cookie")) > 0 {
+		return false
+	}
+	cc := strings.ToLower(h.Get("Cache-Control"))
+	if strings.Contains(cc, "no-store") || strings.Contains(cc, "no-cache") || strings.Contains(cc, "private") {
+		return false
+	}
+	if v := h.Get("Vary"); v != "" && !strings.EqualFold(strings.TrimSpace(v), "accept-encoding") {
+		return false
+	}
+	return true
+}
+
 // ServeFromCache writes a cached response to w and returns true if a valid
 // (non-expired) entry exists. Returns false on miss.
 func (rc *ResponseCache) ServeFromCache(w http.ResponseWriter, r *http.Request, ctx *reqctx.Context) bool {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	// Never serve a shared cache entry to a credentialed request.
+	if isPrivateRequest(r) {
 		return false
 	}
 	if rc.findRule(ctx.Config, r) == nil {
@@ -168,6 +204,10 @@ func (rc *ResponseCache) NewRecorder(w http.ResponseWriter, r *http.Request, ctx
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		return nil
 	}
+	// Credentialed requests are never cached.
+	if isPrivateRequest(r) {
+		return nil
+	}
 	if rc.findRule(ctx.Config, r) == nil {
 		return nil
 	}
@@ -180,11 +220,18 @@ func (rc *ResponseCache) Store(r *http.Request, rec *ResponseRecorder, ctx *reqc
 	if rule == nil {
 		return
 	}
+	// Only store responses that are actually safe to replay from a shared,
+	// method+URI-keyed cache (excludes 4xx, Set-Cookie, private/no-store, Vary).
+	if !isCacheableResponse(rec.statusCode, rec.underlying.Header()) {
+		return
+	}
 	key := r.Method + ":" + r.URL.RequestURI()
 
-	// Snapshot response headers (minus our injected cache header).
+	// Snapshot response headers (minus our injected cache header and any
+	// Set-Cookie that must never be replayed to another client).
 	headers := rec.underlying.Header().Clone()
 	headers.Del("X-ProxyShield-Cache")
+	headers.Del("Set-Cookie")
 
 	body := make([]byte, rec.body.Len())
 	copy(body, rec.body.Bytes())
