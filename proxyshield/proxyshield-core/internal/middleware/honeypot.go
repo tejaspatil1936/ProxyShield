@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +32,9 @@ func (m *Honeypot) Handle(w http.ResponseWriter, r *http.Request, ctx *reqctx.Co
 	path := r.URL.Path
 
 	for _, hp := range m.config.Honeypots {
-		if path != hp.Path {
+		// Case-insensitive so scanners probing /Admin, /.ENV, etc. don't evade
+		// a lowercase trap definition.
+		if !strings.EqualFold(path, hp.Path) {
 			continue
 		}
 
