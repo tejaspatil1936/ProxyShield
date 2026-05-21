@@ -27,6 +27,7 @@ type CircuitBreaker struct {
 	state           int32 // 0=closed, 1=open, 2=half-open
 	failureCount    int32
 	successCount    int32
+	halfOpenProbes  int32 // requests admitted since entering HALF_OPEN
 	lastFailureTime int64 // Unix timestamp
 }
 
@@ -46,16 +47,29 @@ func (cb *CircuitBreaker) Allow(cfg *config.CircuitBreakerConfig) bool {
 	case StateOpen:
 		last := atomic.LoadInt64(&cb.lastFailureTime)
 		if time.Now().Unix()-last >= int64(cfg.CooldownSeconds) {
-			// Transition to HALF_OPEN — let one probe request through.
+			// Cooldown elapsed — move to HALF_OPEN and start admitting probes.
 			if atomic.CompareAndSwapInt32(&cb.state, StateOpen, StateHalfOpen) {
 				atomic.StoreInt32(&cb.successCount, 0)
+				atomic.StoreInt32(&cb.halfOpenProbes, 0)
 			}
-			return true
+			return cb.admitProbe(cfg)
 		}
 		return false
 	default: // HALF_OPEN
-		return true
+		return cb.admitProbe(cfg)
 	}
+}
+
+// admitProbe lets at most SuccessThreshold requests through while HALF_OPEN and
+// rejects the rest, so a recovering backend receives a trickle of probes rather
+// than the full load (thundering herd). A single probe failure reopens the
+// circuit (see RecordFailure).
+func (cb *CircuitBreaker) admitProbe(cfg *config.CircuitBreakerConfig) bool {
+	limit := int32(cfg.SuccessThreshold)
+	if limit < 1 {
+		limit = 1
+	}
+	return atomic.AddInt32(&cb.halfOpenProbes, 1) <= limit
 }
 
 // RecordSuccess is called after a 2xx/3xx response from the backend.
@@ -72,6 +86,7 @@ func (cb *CircuitBreaker) RecordSuccess(cfg *config.CircuitBreakerConfig, bus *e
 			atomic.StoreInt32(&cb.state, StateClosed)
 			atomic.StoreInt32(&cb.failureCount, 0)
 			atomic.StoreInt32(&cb.successCount, 0)
+			atomic.StoreInt32(&cb.halfOpenProbes, 0)
 			if bus != nil {
 				bus.Publish(event.Event{
 					Name:      event.CircuitClosed,
@@ -104,9 +119,11 @@ func (cb *CircuitBreaker) RecordFailure(cfg *config.CircuitBreakerConfig, bus *e
 			}
 		}
 	case StateHalfOpen:
-		// Probe failed — reopen.
+		// Probe failed — reopen immediately.
 		if atomic.CompareAndSwapInt32(&cb.state, StateHalfOpen, StateOpen) {
 			atomic.StoreInt64(&cb.lastFailureTime, time.Now().Unix())
+			atomic.StoreInt32(&cb.halfOpenProbes, 0)
+			atomic.StoreInt32(&cb.successCount, 0)
 			if bus != nil {
 				bus.Publish(event.Event{
 					Name:      event.CircuitOpened,
