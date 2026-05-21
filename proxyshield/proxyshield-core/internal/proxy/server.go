@@ -86,6 +86,7 @@ func NewServer(holder *config.Holder, bus *event.Bus) (*Server, error) {
 		for range ticker.C {
 			tb.Cleanup(5 * time.Minute)
 			sw.Cleanup(5 * time.Minute)
+			sweepBans(banMap)
 		}
 	}()
 
@@ -132,6 +133,21 @@ func (s *Server) Shutdown() error {
 // GetBanMap returns the shared ban map (used by dashboard stats).
 func (s *Server) GetBanMap() *sync.Map {
 	return s.banMap
+}
+
+// sweepBans removes expired entries from the ban map. Without this, expired bans
+// are only deleted lazily when the same fingerprint returns, so a rotating-IP
+// scanner leaves a permanent entry per probe — an unbounded memory leak.
+func sweepBans(banMap *sync.Map) {
+	now := time.Now()
+	banMap.Range(func(k, v interface{}) bool {
+		if entry, ok := v.(middleware.BanEntry); ok {
+			if now.After(entry.BannedAt.Add(entry.BanDuration)) {
+				banMap.Delete(k)
+			}
+		}
+		return true
+	})
 }
 
 func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
