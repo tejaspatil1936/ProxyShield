@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bufio"
+	"errors"
+	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -162,4 +165,21 @@ func (s *StatusCapture) StatusCode() int {
 		return http.StatusOK
 	}
 	return s.statusCode
+}
+
+// Flush forwards to the underlying writer so streaming/SSE responses are not
+// buffered. Implements http.Flusher.
+func (s *StatusCapture) Flush() {
+	if f, ok := s.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Hijack forwards to the underlying writer so WebSocket/other upgrades work.
+// Implements http.Hijacker.
+func (s *StatusCapture) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := s.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, errors.New("underlying ResponseWriter does not support hijacking")
 }
