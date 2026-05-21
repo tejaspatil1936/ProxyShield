@@ -26,17 +26,44 @@ import (
 
 // Server is the main proxy server.
 type Server struct {
-	config         *config.Holder
-	eventBus       *event.Bus
-	chain          []middleware.Middleware
-	forwarder      *httputil.ReverseProxy
-	banMap         *sync.Map
-	tb             *algorithm.TokenBucket
-	sw             *algorithm.SlidingWindow
-	httpServer     *http.Server
+	config          *config.Holder
+	eventBus        *event.Bus
+	forwarder       *httputil.ReverseProxy
+	banMap          *sync.Map
+	tb              *algorithm.TokenBucket
+	sw              *algorithm.SlidingWindow
+	httpServer      *http.Server
 	circuitBreaker  *middleware.CircuitBreaker
 	cache           *middleware.ResponseCache
 	adaptiveTracker *middleware.AdaptiveTracker
+
+	// chain is built once and rebuilt only when the config pointer changes
+	// (i.e. on hot reload), rather than on every request.
+	chainMu  sync.RWMutex
+	chain    []middleware.Middleware
+	chainCfg *config.Config
+}
+
+// getChain returns the middleware chain for cfg, rebuilding it only when the
+// config pointer differs from the one the cached chain was built with. Building
+// the chain (and recompiling WAF regexes) on every request was pure per-request
+// waste.
+func (s *Server) getChain(cfg *config.Config) []middleware.Middleware {
+	s.chainMu.RLock()
+	if s.chainCfg == cfg && s.chain != nil {
+		c := s.chain
+		s.chainMu.RUnlock()
+		return c
+	}
+	s.chainMu.RUnlock()
+
+	s.chainMu.Lock()
+	defer s.chainMu.Unlock()
+	if s.chainCfg != cfg || s.chain == nil {
+		s.chain = middleware.BuildChain(cfg, s.banMap, s.tb, s.sw, s.adaptiveTracker)
+		s.chainCfg = cfg
+	}
+	return s.chain
 }
 
 // NewServer creates a new proxy server with all dependencies wired up.
@@ -198,8 +225,8 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		EventBus:  s.eventBus,
 	}
 
-	// Rebuild chain with current config on each request (supports hot reload)
-	chain := middleware.BuildChain(cfg, s.banMap, s.tb, s.sw, s.adaptiveTracker)
+	// Reuse the cached chain; rebuilt only when config changes (hot reload).
+	chain := s.getChain(cfg)
 
 	if middleware.RunChain(chain, w, r, ctx) {
 		return
