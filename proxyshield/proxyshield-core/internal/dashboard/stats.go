@@ -115,6 +115,13 @@ func (s *Stats) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.mu.RLock()
+	// Deep-copy the live map under the lock: aliasing it and encoding after the
+	// unlock races with Start()'s writes ("concurrent map iteration and map
+	// write"), which json.Encode would trip on under load.
+	blockedByType := make(map[string]int64, len(s.BlockedByType))
+	for k, v := range s.BlockedByType {
+		blockedByType[k] = v
+	}
 	snapshot := struct {
 		TotalRequests  int64            `json:"totalRequests"`
 		TotalForwarded int64            `json:"totalForwarded"`
@@ -127,7 +134,7 @@ func (s *Stats) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		TotalRequests:  atomic.LoadInt64(&s.TotalRequests),
 		TotalForwarded: atomic.LoadInt64(&s.TotalForwarded),
 		TotalBlocked:   atomic.LoadInt64(&s.TotalBlocked),
-		BlockedByType:  s.BlockedByType,
+		BlockedByType:  blockedByType,
 		RPS:            s.RPS,
 		ActiveBans:     s.countActiveBans(),
 		Uptime:         time.Since(s.startTime).Seconds(),
