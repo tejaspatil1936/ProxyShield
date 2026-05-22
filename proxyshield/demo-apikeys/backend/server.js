@@ -97,6 +97,44 @@ function publicView(k) {
   return safe;
 }
 
+// ── Auth (real signed HS256 JWT, no external dependency) ──────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
+
+function signToken(payload, expiresInSec = 3600) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const body = Buffer.from(JSON.stringify({ ...payload, iat: now, exp: now + expiresInSec })).toString('base64url');
+  const data = `${header}.${body}`;
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+function verifyToken(token) {
+  const parts = (token || '').split('.');
+  if (parts.length !== 3) return null;
+  const [h, p, sig] = parts;
+  const expected = crypto.createHmac('sha256', JWT_SECRET).update(`${h}.${p}`).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  let payload;
+  try { payload = JSON.parse(Buffer.from(p, 'base64url').toString()); } catch { return null; }
+  if (payload.exp && Math.floor(Date.now() / 1000) > payload.exp) return null;
+  return payload;
+}
+
+// requireAuth rejects requests without a valid Bearer token.
+function requireAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+  const payload = verifyToken(token);
+  if (!payload) {
+    return res.status(401).json({ error: 'Unauthorized', reason: 'INVALID_OR_MISSING_TOKEN' });
+  }
+  req.user = payload;
+  next();
+}
+
 // ── Middleware: request logger ────────────────────────────────────────────────
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -109,36 +147,37 @@ app.use((req, _res, next) => {
 app.post('/api/login', (req, res) => {
   const { email, password } = req.body || {};
   if (email === 'admin@apikeys.dev' && password === 'admin123') {
+    const user = { name: 'Admin', email: 'admin@apikeys.dev', role: 'owner' };
     return res.json({
       success: true,
-      token: 'admin-jwt',
-      user: { name: 'Admin', email: 'admin@apikeys.dev', role: 'owner' }
+      token: signToken({ sub: user.email, name: user.name, role: user.role }),
+      user
     });
   }
   res.status(401).json({ error: 'Invalid credentials' });
 });
 
 // GET /api/keys
-app.get('/api/keys', (_req, res) => {
+app.get('/api/keys', requireAuth, (_req, res) => {
   res.json(apiKeys.map(publicView));
 });
 
 // GET /api/keys/search
-app.get('/api/keys/search', (req, res) => {
+app.get('/api/keys/search', requireAuth, (req, res) => {
   const q = (req.query.q || '').toLowerCase();
   const results = apiKeys.filter(k => k.name.toLowerCase().includes(q));
   res.json(results.map(publicView));
 });
 
 // GET /api/keys/:id
-app.get('/api/keys/:id', (req, res) => {
+app.get('/api/keys/:id', requireAuth, (req, res) => {
   const key = apiKeys.find(k => k.id === req.params.id);
   if (!key) return res.status(404).json({ error: 'Key not found' });
   res.json(publicView(key));
 });
 
 // POST /api/keys
-app.post('/api/keys', (req, res) => {
+app.post('/api/keys', requireAuth, (req, res) => {
   const { name, permissions = ['read'], environment = 'development', rateLimit = 1000 } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name is required' });
 
@@ -168,15 +207,15 @@ app.post('/api/keys', (req, res) => {
 });
 
 // DELETE /api/keys/:id
-app.delete('/api/keys/:id', (req, res) => {
+app.delete('/api/keys/:id', requireAuth, (req, res) => {
   const key = apiKeys.find(k => k.id === req.params.id);
   if (!key) return res.status(404).json({ error: 'Key not found' });
   key.status = 'revoked';
-  res.json(key);
+  res.json(publicView(key));
 });
 
 // POST /api/keys/:id/rotate
-app.post('/api/keys/:id/rotate', (req, res) => {
+app.post('/api/keys/:id/rotate', requireAuth, (req, res) => {
   const key = apiKeys.find(k => k.id === req.params.id);
   if (!key) return res.status(404).json({ error: 'Key not found' });
   const hex = crypto.randomBytes(24).toString('hex');
@@ -190,7 +229,7 @@ app.post('/api/keys/:id/rotate', (req, res) => {
 });
 
 // GET /api/keys/:id/usage
-app.get('/api/keys/:id/usage', (req, res) => {
+app.get('/api/keys/:id/usage', requireAuth, (req, res) => {
   const keyId = req.params.id;
   const data = usageLogs.map(entry => ({
     hour: entry.hour,
@@ -200,7 +239,7 @@ app.get('/api/keys/:id/usage', (req, res) => {
 });
 
 // GET /api/usage/overview
-app.get('/api/usage/overview', (_req, res) => {
+app.get('/api/usage/overview', requireAuth, (_req, res) => {
   const active = apiKeys.filter(k => k.status === 'active');
   const totalToday = apiKeys.reduce((s, k) => s + k.usage.today, 0);
   const totalMonth = apiKeys.reduce((s, k) => s + k.usage.thisMonth, 0);
