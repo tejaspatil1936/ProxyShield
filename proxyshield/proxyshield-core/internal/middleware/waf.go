@@ -14,23 +14,27 @@ import (
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
+// WAF regex patterns are compiled exactly once at package init, never per
+// request or per WAF construction.
+var (
+	wafSQLPattern = regexp.MustCompile(`(?i)(\b(union\s+(all\s+)?select|select\s+.*\s+from|insert\s+into|update\s+.*\s+set|delete\s+from|drop\s+(table|database|column)|alter\s+table|create\s+(table|database)|exec(\s+|\()|execute(\s+|\()|xp_|sp_)\b|(--)|(/\*[\s\S]*?\*/)|\b(or|and)\s+\d+\s*=\s*\d+|('\s*(or|and)\s+'?\d+'?\s*=\s*'?\d+)|(;\s*(drop|delete|update|insert|alter|create)))`)
+	wafXSSPattern = regexp.MustCompile(`(?i)(<\s*script|<\s*iframe|<\s*embed|<\s*object|javascript\s*:|on(error|load|click|mouseover|focus|blur|submit|change|input|keydown|keyup|keypress)\s*=|eval\s*\(|document\s*\.\s*(cookie|write|location)|window\s*\.\s*(location|open)|alert\s*\(|prompt\s*\(|confirm\s*\()`)
+)
+
 // WAF is the Web Application Firewall middleware. It detects SQL injection, XSS,
-// and high-entropy anomalies. Regex patterns are compiled once at startup.
+// and high-entropy anomalies using the package-level compiled patterns.
 type WAF struct {
 	config     *config.Config
 	sqlPattern *regexp.Regexp
 	xssPattern *regexp.Regexp
 }
 
-// NewWAF creates a WAF middleware, compiling regex patterns at construction time.
+// NewWAF creates a WAF middleware referencing the pre-compiled patterns.
 func NewWAF(cfg *config.Config) *WAF {
-	sqlPattern := regexp.MustCompile(`(?i)(\b(union\s+(all\s+)?select|select\s+.*\s+from|insert\s+into|update\s+.*\s+set|delete\s+from|drop\s+(table|database|column)|alter\s+table|create\s+(table|database)|exec(\s+|\()|execute(\s+|\()|xp_|sp_)\b|(--)|(/\*[\s\S]*?\*/)|\b(or|and)\s+\d+\s*=\s*\d+|('\s*(or|and)\s+'?\d+'?\s*=\s*'?\d+)|(;\s*(drop|delete|update|insert|alter|create)))`)
-	xssPattern := regexp.MustCompile(`(?i)(<\s*script|<\s*iframe|<\s*embed|<\s*object|javascript\s*:|on(error|load|click|mouseover|focus|blur|submit|change|input|keydown|keyup|keypress)\s*=|eval\s*\(|document\s*\.\s*(cookie|write|location)|window\s*\.\s*(location|open)|alert\s*\(|prompt\s*\(|confirm\s*\()`)
-
 	return &WAF{
 		config:     cfg,
-		sqlPattern: sqlPattern,
-		xssPattern: xssPattern,
+		sqlPattern: wafSQLPattern,
+		xssPattern: wafXSSPattern,
 	}
 }
 
