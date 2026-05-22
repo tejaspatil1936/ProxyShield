@@ -7,6 +7,7 @@ import (
 
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/algorithm"
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/config"
+	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/logger"
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/reqctx"
 )
 
@@ -53,7 +54,13 @@ func BuildChain(cfg *config.Config, banMap *sync.Map, tb *algorithm.TokenBucket,
 		if name == "headers" || name == "cache" {
 			continue
 		}
-		if factory, ok := factories[name]; ok && factory != nil {
+		factory, ok := factories[name]
+		if !ok {
+			// A typo like "waff" would otherwise silently disable that protection.
+			logger.Warn("unknown middleware in config — ignored", logger.F("name", name))
+			continue
+		}
+		if factory != nil {
 			chain = append(chain, factory())
 		}
 	}
