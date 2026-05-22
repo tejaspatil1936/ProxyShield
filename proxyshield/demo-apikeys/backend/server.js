@@ -81,6 +81,22 @@ for (let i = 23; i >= 0; i--) {
 
 const startTime = Date.now();
 
+// ── Secret handling ───────────────────────────────────────────────────────────
+// API key secrets are never stored in plaintext. We keep only a SHA-256 hash and
+// the display prefix; the full secret is returned exactly once (on create/rotate)
+// and can never be read back — matching the UI's "shown only once" promise.
+
+function hashSecret(secret) {
+  return crypto.createHash('sha256').update(secret).digest('hex');
+}
+
+// publicView returns a key object safe to send to any GET consumer: it strips the
+// stored hash and never carries a plaintext secret.
+function publicView(k) {
+  const { keyHash, key, ...safe } = k;
+  return safe;
+}
+
 // ── Middleware: request logger ────────────────────────────────────────────────
 app.use((req, _res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -104,21 +120,21 @@ app.post('/api/login', (req, res) => {
 
 // GET /api/keys
 app.get('/api/keys', (_req, res) => {
-  res.json(apiKeys);
+  res.json(apiKeys.map(publicView));
 });
 
 // GET /api/keys/search
 app.get('/api/keys/search', (req, res) => {
   const q = (req.query.q || '').toLowerCase();
   const results = apiKeys.filter(k => k.name.toLowerCase().includes(q));
-  res.json(results);
+  res.json(results.map(publicView));
 });
 
 // GET /api/keys/:id
 app.get('/api/keys/:id', (req, res) => {
   const key = apiKeys.find(k => k.id === req.params.id);
   if (!key) return res.status(404).json({ error: 'Key not found' });
-  res.json(key);
+  res.json(publicView(key));
 });
 
 // POST /api/keys
@@ -130,6 +146,7 @@ app.post('/api/keys', (req, res) => {
   const prefix = environment.startsWith('prod') ? 'sk_live' : 'sk_test';
   const id = `key_${environment.slice(0, 4)}_${hex.slice(0, 12)}`;
   const suffix = hex.slice(-2);
+  const secret = `${prefix}_${hex}${crypto.randomBytes(8).toString('hex')}`;
 
   const newKey = {
     id,
@@ -142,11 +159,12 @@ app.post('/api/keys', (req, res) => {
     rateLimit,
     usage: { today: 0, thisMonth: 0, total: 0 },
     environment,
-    key: `${prefix}_${hex}${crypto.randomBytes(8).toString('hex')}`
+    keyHash: hashSecret(secret) // store only the hash — never the plaintext
   };
 
   apiKeys.push(newKey);
-  res.status(201).json(newKey);
+  // Return the secret exactly once; subsequent GETs never expose it.
+  res.status(201).json({ ...publicView(newKey), key: secret });
 });
 
 // DELETE /api/keys/:id
@@ -163,8 +181,12 @@ app.post('/api/keys/:id/rotate', (req, res) => {
   if (!key) return res.status(404).json({ error: 'Key not found' });
   const hex = crypto.randomBytes(24).toString('hex');
   const prefix = key.environment.startsWith('prod') ? 'sk_live' : 'sk_test';
+  const secret = `${prefix}_${hex}`;
+  key.keyHash = hashSecret(secret); // rotate the stored hash
+  key.prefix = `${prefix}_...${hex.slice(-2)}`;
   key.lastUsed = new Date().toISOString();
-  res.json({ ...key, key: `${prefix}_${hex}` });
+  // Return the new secret exactly once.
+  res.json({ ...publicView(key), key: secret });
 });
 
 // GET /api/keys/:id/usage
