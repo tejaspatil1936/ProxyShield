@@ -240,13 +240,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	// Circuit breaker — reject immediately if backend is known-bad.
 	if !s.circuitBreaker.Allow(cbCfg) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		data, _ := json.Marshal(map[string]string{
-			"error":  "Service temporarily unavailable",
-			"reason": "CIRCUIT_BREAKER_OPEN",
-		})
-		w.Write(data)
+		writeErrorJSON(w, http.StatusServiceUnavailable, "Service temporarily unavailable", "CIRCUIT_BREAKER_OPEN")
 		s.eventBus.Publish(event.Event{
 			Name:      event.RequestBlocked,
 			Data:      map[string]interface{}{"ip": ip, "path": r.URL.Path, "threatTag": "CIRCUIT_BREAKER", "fingerprint": ctx.Fingerprint},
@@ -336,10 +330,15 @@ func extractIP(r *http.Request, cfg *config.Config) string {
 	return host
 }
 
-// writeBlockedJSON writes a 4xx JSON error response.
-func writeBlockedJSON(w http.ResponseWriter, status int, reason string) {
+// writeErrorJSON writes a JSON error body {"error":errMsg,"reason":reason}.
+func writeErrorJSON(w http.ResponseWriter, status int, errMsg, reason string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	data, _ := json.Marshal(map[string]string{"error": "Request rejected", "reason": reason})
+	data, _ := json.Marshal(map[string]string{"error": errMsg, "reason": reason})
 	w.Write(data)
+}
+
+// writeBlockedJSON writes a standard "Request rejected" 4xx JSON error response.
+func writeBlockedJSON(w http.ResponseWriter, status int, reason string) {
+	writeErrorJSON(w, status, "Request rejected", reason)
 }
