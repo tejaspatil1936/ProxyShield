@@ -80,8 +80,9 @@ func main() {
 	printBanner(cfg)
 
 	// Start dashboard if enabled
+	var dash *dashboard.DashboardServer
 	if cfg.Dashboard.Enabled {
-		dash := dashboard.NewDashboardServerOnPort(bus, server.GetBanMap(), cfg.Server.DashboardPort, cfg.Dashboard.AuthToken)
+		dash = dashboard.NewDashboardServerOnPort(bus, server.GetBanMap(), cfg.Server.DashboardPort, cfg.Dashboard.AuthToken)
 		go func() {
 			if err := dash.Start(bus); err != nil {
 				logger.Error("dashboard error", logger.F("error", err.Error()))
@@ -89,13 +90,16 @@ func main() {
 		}()
 	}
 
-	// Handle shutdown signals
+	// Single shutdown path: main owns SIGINT/SIGTERM and gracefully stops both
+	// the proxy and the dashboard.
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
-		<-sigCh
-		logger.Info("shutting down")
+		sig := <-sigCh
+		logger.Info("shutdown signal received", logger.F("signal", sig.String()))
+		if dash != nil {
+			dash.Shutdown()
+		}
 		server.Shutdown()
 	}()
 

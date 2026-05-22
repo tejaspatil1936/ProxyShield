@@ -9,11 +9,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/tejaspatil1936/Consensus-Lab/proxyshield/proxyshield-core/internal/algorithm"
@@ -120,34 +117,23 @@ func NewServer(holder *config.Holder, bus *event.Bus) (*Server, error) {
 	return s, nil
 }
 
-// Start begins listening on the configured port. Handles SIGINT/SIGTERM gracefully.
+// Start begins listening on the configured port and blocks until the server is
+// shut down (via Shutdown) or fails. Signal handling is owned by main so there
+// is a single, coordinated shutdown path for both the proxy and dashboard.
 func (s *Server) Start() error {
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	errCh := make(chan error, 1)
-	go func() {
-		tls := s.config.Get().Server.TLS
-		if tls.Enabled {
-			logger.Info("proxy listening (TLS)", logger.F("addr", s.httpServer.Addr))
-			if err := s.httpServer.ListenAndServeTLS(tls.CertFile, tls.KeyFile); err != nil && err != http.ErrServerClosed {
-				errCh <- err
-			}
-			return
+	tls := s.config.Get().Server.TLS
+	if tls.Enabled {
+		logger.Info("proxy listening (TLS)", logger.F("addr", s.httpServer.Addr))
+		if err := s.httpServer.ListenAndServeTLS(tls.CertFile, tls.KeyFile); err != nil && err != http.ErrServerClosed {
+			return err
 		}
-		logger.Info("proxy listening", logger.F("addr", s.httpServer.Addr))
-		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			errCh <- err
-		}
-	}()
-
-	select {
-	case err := <-errCh:
-		return err
-	case sig := <-sigCh:
-		logger.Info("shutdown signal received", logger.F("signal", sig.String()))
-		return s.Shutdown()
+		return nil
 	}
+	logger.Info("proxy listening", logger.F("addr", s.httpServer.Addr))
+	if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
 }
 
 // Shutdown gracefully stops the server with a 5-second timeout.
