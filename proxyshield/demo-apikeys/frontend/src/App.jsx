@@ -65,6 +65,14 @@ export default function App() {
 
   return (
     <div>
+      {/* Persistent reminder that this is a non-production demo. */}
+      <div style={{
+        position: 'fixed', bottom: 8, left: 8, zIndex: 9999, pointerEvents: 'none',
+        fontSize: 11, fontWeight: 600, background: 'rgba(124, 45, 18, 0.9)',
+        color: '#fed7aa', padding: '4px 9px', borderRadius: 6
+      }}>
+        ⚠️ Demo — not for production
+      </div>
       {notification && (
         <Notification
           message={notification.msg}

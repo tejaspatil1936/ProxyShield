@@ -18,6 +18,16 @@ export default function LoginPage({ onLogin }) {
         <div className="login-logo">🔑 KeyVault</div>
         <div className="login-subtitle">Manage, monitor, and secure your API keys</div>
 
+        <div style={{
+          margin: '12px 0 4px', padding: '8px 12px', borderRadius: 8,
+          background: 'rgba(124, 45, 18, 0.12)', border: '1px solid rgba(124, 45, 18, 0.35)',
+          color: '#9a3412', fontSize: 12, lineHeight: 1.4, textAlign: 'center'
+        }}>
+          ⚠️ <strong>Demo app</strong> — data is in-memory (resets on restart) and the
+          login below is a shared sample credential. Do not deploy as-is; it exists to
+          showcase ProxyShield protecting a backend.
+        </div>
+
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Email</label>
