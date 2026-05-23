@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { API } from '../api.js';
+import { authFetch } from '../api.js';
 import { relativeTime } from '../format.js';
 import UsageChart from './UsageChart.jsx';
 
@@ -11,7 +11,7 @@ export default function KeyDetailPanel({ apiKey, usageData, onRevoke, onClose, s
   const handleRotate = async () => {
     setRotating(true);
     try {
-      const res = await fetch(`${API}/api/keys/${apiKey.id}/rotate`, { method: 'POST' });
+      const res = await authFetch(`/api/keys/${apiKey.id}/rotate`, { method: 'POST' });
       if (res.status === 429) {
         showNotification('Rate limited. Try again later.', 'warning');
       } else if (res.ok) {
@@ -28,7 +28,7 @@ export default function KeyDetailPanel({ apiKey, usageData, onRevoke, onClose, s
     if (!confirm('Revoke this key? This cannot be undone.')) return;
     setRevoking(true);
     try {
-      const res = await fetch(`${API}/api/keys/${apiKey.id}`, { method: 'DELETE' });
+      const res = await authFetch(`/api/keys/${apiKey.id}`, { method: 'DELETE' });
       if (res.ok) {
         showNotification('Key revoked.', 'info');
         onRevoke(apiKey.id);

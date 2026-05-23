@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { API } from './api.js';
+import { API, authFetch, setToken } from './api.js';
 import LoginPage from './components/LoginPage.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import Notification from './components/Notification.jsx';
@@ -36,12 +36,14 @@ export default function App() {
       return false;
     }
     const data = await res.json();
+    setToken(data.token); // persist the signed JWT for authenticated requests
     setUser(data.user);
     setIsLoggedIn(true);
     return true;
   };
 
   const logout = () => {
+    setToken(null);
     setIsLoggedIn(false);
     setUser(null);
     setApiKeys([]);
@@ -50,7 +52,7 @@ export default function App() {
 
   const fetchKeys = async () => {
     try {
-      const res = await fetch(`${API}/api/keys`);
+      const res = await authFetch('/api/keys');
       if (res.ok) {
         setApiKeys(await res.json());
       }
@@ -80,7 +82,7 @@ export default function App() {
             setSelectedKey(key);
             if (key) {
               try {
-                const res = await fetch(`${API}/api/keys/${key.id}/usage`);
+                const res = await authFetch(`/api/keys/${key.id}/usage`);
                 if (res.ok) setUsageData(await res.json());
               } catch (_) {}
             } else {
