@@ -22,7 +22,13 @@
 
 - Frontend: `https://your-app.vercel.app`
 - Proxy: `https://your-app.up.railway.app`
-- Dashboard: `https://your-app.up.railway.app/dashboard`
+
+> **Dashboard note:** Railway exposes only the single `$PORT` (the proxy). The
+> real-time dashboard runs on `$PORT + 1`, which Railway does **not** route, so
+> it is not reachable at a public URL on Railway. Run the proxy locally
+> (`./proxyshield --config config.json`) to view the dashboard at
+> `http://localhost:9091`, or deploy somewhere that can expose two ports. If you
+> expose it, set `dashboard.auth_token` in the config to protect the telemetry.
 
 ## Local development (no deployment needed)
 
