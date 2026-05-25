@@ -1,22 +1,18 @@
 #!/bin/bash
+set -e
 echo "Starting ProxyShield (production)..."
 
-# Get port from Railway (or default 9090)
-export PROXY_PORT="${PORT:-9090}"
-
-# Start Express backend on localhost:3000 (hidden)
+# Start Express backend on 127.0.0.1:3000 (hidden from the internet)
 cd /app/backend
 node server.js &
-BACKEND_PID=$!
 echo "Backend started on 127.0.0.1:3000"
 
 # Wait for backend to be ready
 sleep 2
 
-# Update config with correct port
+# Start the Go proxy in the foreground. It binds to $PORT automatically (the
+# binary reads PORT and overrides listen_port), so no fragile config rewrite is
+# needed — Railway sets PORT; locally it defaults to the config's 9090.
 cd /app/proxy
-sed -i "s/\"listen_port\": 9090/\"listen_port\": $PROXY_PORT/" config.json
-
-# Start Go proxy in foreground
-echo "Proxy starting on port $PROXY_PORT"
+echo "Proxy starting on port ${PORT:-9090}"
 exec ./proxyshield-core --config config.json

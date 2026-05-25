@@ -12,7 +12,9 @@ RUN apk --no-cache add ca-certificates bash
 # Copy Go binary and assets
 WORKDIR /app/proxy
 COPY --from=go-builder /app/proxyshield-core .
-COPY --from=go-builder /app/config.json ./config.json
+# Use the production config (backend on 127.0.0.1:3000, /api/* rate limits,
+# trusted_proxies for the platform edge) — NOT the dev config.json.
+COPY --from=go-builder /app/config.production.json ./config.json
 COPY --from=go-builder /app/honeypots.json ./honeypots.json
 COPY --from=go-builder /app/internal/dashboard/public ./internal/dashboard/public
 
