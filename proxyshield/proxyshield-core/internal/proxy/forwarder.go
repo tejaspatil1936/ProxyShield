@@ -15,7 +15,7 @@ import (
 type contextKey string
 
 // clientIPKey carries the trusted, resolved client IP from handleRequest into
-// the forwarder's Director so it can set an accurate X-Forwarded-For.
+// the forwarder so it can set an accurate X-Forwarded-For.
 const clientIPKey contextKey = "proxyshield.clientIP"
 
 // NewForwarder creates an httputil.ReverseProxy configured for the given backend URL.
@@ -26,40 +26,38 @@ func NewForwarder(backendURL string) (*httputil.ReverseProxy, error) {
 		return nil, err
 	}
 
-	proxy := httputil.NewSingleHostReverseProxy(target)
+	// Use Rewrite (not Director): Director would leave ReverseProxy's automatic
+	// X-Forwarded-For appending in place, tacking the direct peer onto whatever we
+	// set. Rewrite disables that, so the backend sees exactly the single trusted
+	// client IP we choose — no spoofable chain.
+	proxy := &httputil.ReverseProxy{
+		Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(target) // scheme/host + path join to the backend
+			pr.Out.Host = target.Host
 
-	proxy.Director = func(req *http.Request) {
-		host := req.Host
-		req.URL.Scheme = target.Scheme
-		req.URL.Host = target.Host
-		req.Host = target.Host
-
-		// Preserve original path and query
-		// (already set by caller — do not override)
-
-		// Present the backend with the single client IP that ProxyShield actually
-		// trusts (resolved via the trusted-proxy rules), replacing any
-		// client-supplied X-Forwarded-For chain so the backend can't be fed a
-		// spoofed value. Fall back to the direct peer's IP (without port).
-		clientIP, _ := req.Context().Value(clientIPKey).(string)
-		if clientIP == "" {
-			if h, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-				clientIP = h
-			} else {
-				clientIP = req.RemoteAddr
+			// The single client IP ProxyShield actually trusts (resolved via the
+			// trusted-proxy rules), replacing any client-supplied XFF chain. Fall
+			// back to the direct peer's IP (without port).
+			clientIP, _ := pr.In.Context().Value(clientIPKey).(string)
+			if clientIP == "" {
+				if h, _, err := net.SplitHostPort(pr.In.RemoteAddr); err == nil {
+					clientIP = h
+				} else {
+					clientIP = pr.In.RemoteAddr
+				}
 			}
-		}
-		req.Header.Set("X-Forwarded-For", clientIP)
-		req.Header.Set("X-Real-IP", clientIP)
+			pr.Out.Header.Set("X-Forwarded-For", clientIP)
+			pr.Out.Header.Set("X-Real-IP", clientIP)
 
-		// Reflect the scheme the client used to reach the proxy rather than a
-		// hardcoded "http".
-		proto := "http"
-		if req.TLS != nil {
-			proto = "https"
-		}
-		req.Header.Set("X-Forwarded-Proto", proto)
-		req.Header.Set("X-Forwarded-Host", host)
+			// Reflect the scheme the client used to reach the proxy, not a
+			// hardcoded "http".
+			proto := "http"
+			if pr.In.TLS != nil {
+				proto = "https"
+			}
+			pr.Out.Header.Set("X-Forwarded-Proto", proto)
+			pr.Out.Header.Set("X-Forwarded-Host", pr.In.Host)
+		},
 	}
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
