@@ -29,6 +29,21 @@ Requires Go 1.21+. Zero external dependencies.
 ./proxyshield-core --benchmark --requests 10000 --concurrency 100
 ```
 
+## Testing
+
+```bash
+go test ./...          # run the suite
+go test -race ./...    # with the race detector (recommended)
+go test -cover ./...   # with coverage
+```
+
+The suite covers the token bucket and sliding window limiters, Shannon entropy,
+the WAF (including encoding/unicode evasion and the entropy Content-Type bypass),
+the circuit-breaker state machine, IP blacklist/honeypot bans, safe response
+caching, config validation and trusted-proxy CIDR parsing, the event bus, and the
+trusted-proxy `X-Forwarded-For` resolution — with race coverage on the shared
+rate-limit and stats state.
+
 ## Config
 
 ```json
