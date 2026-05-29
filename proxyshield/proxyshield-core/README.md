@@ -2,16 +2,26 @@
 
 High-performance reverse proxy and API gateway written in Go. Zero external dependencies — standard library only.
 
+> **Scope:** an educational/homelab-grade **Layer-7** proxy. It handles HTTP
+> floods, brute force, scraping, and per-client abuse — not volumetric DDoS. For
+> a production signature WAF, pair it with [Coraza](https://coraza.io/) + CRS.
+
 ## Features
 
-- **WAF**: SQL injection, XSS detection, Shannon entropy anomaly detection
-- **Rate Limiting**: Token bucket + sliding window algorithms (per-IP, per-endpoint)
-- **Honeypots**: Trap URLs that auto-ban scanners
-- **IP Blacklist**: Static + runtime bans
-- **Throttle**: Graduated delays without blocking
-- **Hot Reload**: Config changes applied without restart
-- **Dashboard**: Real-time SSE dashboard at `:9091`
-- **Benchmark**: Built-in self-benchmark mode
+- **Adaptive rate limiting**: learns per-device baselines, auto-blocks spikes
+- **Rate Limiting**: token bucket + sliding window (per-device, per-endpoint)
+- **WAF**: SQLi/XSS signatures with percent-/unicode-decode; Shannon-entropy anomaly detection over header, query, and body
+- **Honeypots**: trap URLs that auto-ban scanners (case-insensitive)
+- **IP Blacklist**: static + runtime device bans, with expiry sweeping
+- **Trusted-proxy XFF**: `X-Forwarded-For` honored only from configured upstream CIDRs (fail-closed)
+- **Circuit breaker**: bounded HALF_OPEN probes protect a recovering backend
+- **Throttle**: graduated delays without hard blocking
+- **TLS**: optional HTTPS termination (`server.tls`)
+- **Response cache**: opt-in, credential/Set-Cookie/Vary-aware
+- **Hot Reload**: config changes applied without restart
+- **Dashboard**: real-time SSE dashboard at `:9091`, optional `dashboard.auth_token`
+- **Metrics**: Prometheus `/metrics`
+- **Benchmark**: built-in self-benchmark mode
 
 ## Build
 
@@ -51,16 +61,23 @@ rate-limit and stats state.
   "server": {
     "listen_port": 9090,
     "backend_url": "http://localhost:8080",
-    "dashboard_port": 9091
+    "dashboard_port": 9091,
+    "trusted_proxies": ["10.0.0.0/8"],
+    "tls": { "enabled": false, "cert_file": "", "key_file": "" }
   },
-  "middlewares": ["ip-blacklist", "waf", "honeypot", "rate-limiter", "throttle", "headers"],
+  "middlewares": ["fingerprint", "ip-blacklist", "waf", "honeypot", "rate-limiter", "adaptive", "throttle", "headers", "cache"],
   "rate_limits": [...],
   "security": {...},
   "honeypots": [...],
   "throttle": {...},
-  "dashboard": { "enabled": true, "max_events": 1000 }
+  "dashboard": { "enabled": true, "max_events": 1000, "auth_token": "" },
+  "adaptive": { "enabled": true, "spike_multiplier": 3.0, "learning_requests": 20, "decay_per_bucket": 0.15 }
 }
 ```
+
+> `trusted_proxies` is empty by default, which means `X-Forwarded-For` is ignored
+> and the direct peer IP is used (fail-closed). Set it to your load balancer /
+> platform edge CIDRs so the real client IP is recovered safely.
 
 ## Dashboard
 
