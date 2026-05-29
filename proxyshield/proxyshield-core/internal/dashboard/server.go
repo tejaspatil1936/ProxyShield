@@ -49,6 +49,7 @@ func NewDashboardServerOnPort(bus *event.Bus, banMap *sync.Map, port int, authTo
 	mux := http.NewServeMux()
 	mux.HandleFunc("/events", d.requireAuth(broker.ServeHTTP))
 	mux.HandleFunc("/stats", d.requireAuth(stats.ServeHTTP))
+	mux.HandleFunc("/metrics", d.requireAuth(stats.ServePrometheus))
 	mux.HandleFunc("/style.css", d.serveStatic("style.css", "text/css"))
 	mux.HandleFunc("/app.js", d.serveStatic("app.js", "application/javascript"))
 	mux.HandleFunc("/dashboard", d.serveIndex)
